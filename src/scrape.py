@@ -1,10 +1,34 @@
 # Simple assignment
-from selenium.webdriver import Safari
+from bs4 import BeautifulSoup
+from lxml import etree
+import requests
+import re
 import pandas as pd
 
-driver = Safari()
-url = 'https://www.coppellisd.com/COVID-19Dashboard'
-driver.get(url)
+URL = 'https://www.coppellisd.com/COVID-19Dashboard'
+HEADERS = ({'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \
+            (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+            'Accept-Language': 'en-US, en;q=0.5'})
+
+webpage = requests.get(URL, headers=HEADERS)
+html_doc = webpage.content
+htmlparser = etree.HTMLParser()
+html_dom = etree.HTML(html_doc, htmlparser)
+print(html_dom.xpath(
+    '//div[@class = "ui-widget-detail"]/input[@type = "hidden"][1]'))
+
+test = html_dom.xpath(
+    '//div[@class = "ui-widget-detail"]/input[@type = "hidden"][1]')
+
+print(test[0].get('value'))
+
+cleanr = re.compile('<.*?>')
+cleantext = re.sub(cleanr, '', test[0].get('value'))
+print(cleantext)
+cleanertext = cleantext.replace('],[', '\n').replace('"', '')
+print(cleanertext)
+
 
 latestDate = driver.find_element_by_xpath(
     "(//em)[1]").text.lstrip('Last Updated On: ').split('\\')[0]
