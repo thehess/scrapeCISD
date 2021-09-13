@@ -1,6 +1,7 @@
 # Simple assignment
-from bs4 import BeautifulSoup
+from bs4.dammit import EncodingDetector
 from lxml import etree
+from io import StringIO
 import requests
 import re
 import pandas as pd
@@ -10,34 +11,29 @@ HEADERS = ({'User-Agent':
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \
             (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
             'Accept-Language': 'en-US, en;q=0.5'})
+TABLEXPATH = '//div[@class = "ui-widget-detail"]/input[@type = "hidden"][1]'
+DATEXPATH = '(//em)[1]'
 
 webpage = requests.get(URL, headers=HEADERS)
 html_doc = webpage.content
 htmlparser = etree.HTMLParser()
 html_dom = etree.HTML(html_doc, htmlparser)
-print(html_dom.xpath(
-    '//div[@class = "ui-widget-detail"]/input[@type = "hidden"][1]'))
 
-test = html_dom.xpath(
-    '//div[@class = "ui-widget-detail"]/input[@type = "hidden"][1]')
 
-print(test[0].get('value'))
-
+raw_tables = []
 cleanr = re.compile('<.*?>')
-cleantext = re.sub(cleanr, '', test[0].get('value'))
-print(cleantext)
-cleanertext = cleantext.replace('],[', '\n').replace('"', '')
-print(cleanertext)
 
+for table_num in range(3):
+    raw_tables.append(re.sub(cleanr, '', html_dom.xpath(
+        TABLEXPATH)[table_num].get('value')).replace('"', '').replace('[[', '').replace(']]', '').replace('],[', '\n'))
 
-latestDate = driver.find_element_by_xpath(
-    "(//em)[1]").text.lstrip('Last Updated On: ').split('\\')[0]
-elem_df = pd.read_html(driver.find_element_by_xpath(
-    "(//table)[1]").get_attribute('outerHTML'))[0]
-midl_df = pd.read_html(driver.find_element_by_xpath(
-    "(//table)[2]").get_attribute('outerHTML'))[0]
-high_df = pd.read_html(driver.find_element_by_xpath(
-    "(//table)[3]").get_attribute('outerHTML'))[0]
+latest_date_object = html_dom.xpath(DATEXPATH)[0]
+latest_date = etree.tostring(latest_date_object, encoding='utf-8',
+                             method='text').decode().split(': ')[1].split('2021')[0]+'2021'
+
+elem_df = pd.read_csv(StringIO(raw_tables[0]), sep=',')
+midl_df = pd.read_csv(StringIO(raw_tables[1]), sep=',')
+high_df = pd.read_csv(StringIO(raw_tables[2]), sep=',')
 
 elem_df.to_csv('./output/CoppellISDCovid21-22/elem.csv')
 midl_df.to_csv('./output/CoppellISDCovid21-22/midl.csv')
@@ -61,12 +57,9 @@ high_df = high_df.melt(id_vars=["Campuses"],
 # print(midl_df)
 # print(high_df)
 final_df = pd.concat([elem_df, midl_df, high_df], ignore_index=True)
-final_df['Date'] = latestDate
+final_df['Date'] = latest_date
 
 final_df = final_df[['Date', 'Campuses', 'Grade', 'Cases']]
 final_df = final_df.sort_values(by=['Campuses', 'Grade'])
 final_df.to_csv('./output/CoppellISDCovid21-22/final.csv', index=False)
 print(final_df)
-
-# close browser
-driver.quit()
